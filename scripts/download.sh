@@ -26,31 +26,35 @@ wget $1 -P $2
 echo "Done"
 
 
-# Si el tercer argumento es "yes", lo descargamos y descomprimimos el archivo descargado:
-if [ "$3" == "yes" ] 
+# Si el tercer argumento es "yes" y el archivo está comprimido, lo descomprimimos:
+
+#Defino primero el nombre del archivo para asegurarme de que es un archivo comprimido:
+file=$(basename "$1")
+
+if [[ "$3" == "yes" && "$file" == *.gz ]]
 then
-    echo "Downloading the contaminants fasta file"
-    wget $1 -P $2
     echo "Uncompressing the file"
-    file=$(basename "$1")
-    gunzip $2/$file
+    gunzip $2/$file #Descomprimimos el archivo en la ruta que me indique el segundo argumento.
     echo "Done"
 else
-    echo "Downloading the contaminants fasta file"
-    wget $1 -P $2
-    echo "Done"
+    echo "The file is not going to be uncompressed"
+    
 fi
 
-# Si el cuarto argumento es una palabra, filtramos las secuencias que contengan ese palabra en su header para eliminarlas,
-# mientras que si es "another", mostramos las dos primeras secuencias:
-if [ "$4" == "another" ]
+# Si el cuarto argumento es una palabra, filtramos las secuencias que contengan ese palabra en su header para eliminarlas:
+if [ -n "$4" ]
 then
-    echo "Showing the first two sequences"
-    file_fasta=$(basename "$1" .gz)
-    head -n 4 "$2"/*.fasta
-else
     echo "Filtering sequences with the word $4 in their header"
-    file_fasta=$(basename "$1" .gz)
-    seqkit grep -v -r -i -p "$4" "$2"/$file_fasta -o "$2"/$file_fasta.filtered.fasta
+    file_fasta=$(basename "$1" .gz) #Defino el nombre del archivo fasta, para asegurarme de que está descomprimido.
+    seqkit grep -v -r -i -n -p "$4" "$2/$file_fasta" -o "$2/$file_fasta.filtered.fasta"
+    #Utilizo seqkit para filtrar las secuencias que contengan la palabra en su header, y guardo el archivo filtrado en la misma ruta que el archivo original.
+    #Para ello uso grep con las siguientes opciones:
+    # -v: Invierte la selección, es decir, selecciona las secuencias que no contengan la palabra.
+    # -r: Usa expresiones regulares.
+    # -i: Ignora mayúsculas y minúsculas.
+    # -n: Muestra el nombre de la secuencia.
+    # -p: Patrón a buscar.
     echo "Done"
+else
+    echo "The sequences are not going to be filtered"
 fi
