@@ -17,11 +17,12 @@
 #
 #   If $4 == "another" only the **first two sequence** should be output
 
-
+#Nos aseguramos de que exista el directorio donde se guardarán los archivos descargados:
+mkdir -p $2
 
 # En primer lugar, descargamos los archivos fastq.gz del archivo url, siendo $1 la url y $2 el directorio donde se guardará:
 
-echo "Downloading $1"
+echo "Downloading $1" 
 wget $1 -P $2
 echo "Done"
 
@@ -46,7 +47,7 @@ if [ -n "$4" ]
 then
     echo "Filtering sequences with the word $4 in their header"
     file_fasta=$(basename "$1" .gz) #Defino el nombre del archivo fasta, para asegurarme de que está descomprimido.
-    seqkit grep -v -r -i -n -p "$4" "$2/$file_fasta" -o "$2/$file_fasta.filtered.fasta"
+    seqkit grep -v -r -i -n -p "$4" "$2/$file_fasta" -o "$2/${file_fasta%.fasta}_filtered.fasta" #Filtro el fasta y guardo el archivo filtrado con otro nombre.
     #Utilizo seqkit para filtrar las secuencias que contengan la palabra en su header, y guardo el archivo filtrado en la misma ruta que el archivo original.
     #Para ello uso grep con las siguientes opciones:
     # -v: Invierte la selección, es decir, selecciona las secuencias que no contengan la palabra.
