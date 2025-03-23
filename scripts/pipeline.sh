@@ -1,8 +1,6 @@
 #Download all the files specified in data/filenames
-for url in $(cat data/urls) #Con un bucle for recorremos el archivo urls que contiene las urls de los archivos a descargar.
-do
-    bash scripts/download.sh $url data #Ejecutamos el script download.sh con cada una de las urls y el directorio data como directorio.
-done
+bash scripts/download.sh data/urls data #Ejecutamos el script download.sh con un wget de una línea (sin usar bucle for) y el directorio data como directorio.
+
 
 # Download the contaminants fasta file, uncompress it, and
 # filter to remove all small nuclear RNAs
@@ -12,7 +10,7 @@ bash scripts/download.sh https://bioinformatics.cnio.es/data/courses/decont/cont
 
 
 # Index the contaminants file
-bash scripts/index.sh res/contaminants_filtered.fasta res/contaminants_idx
+bash scripts/index.sh res/contaminants_filtered.fasta res/contaminants_idx #Indexamos el archivo contaminants_filtered.fasta en el directorio res/contaminants_idx.
 
 # Merge the samples into a single file
 for sid in $(ls data/*.fastq.gz | cut -d "-" -f1 | cut -d "/" -f2 | uniq)
@@ -26,11 +24,17 @@ mkdir -p out/trimmed #Creamos el directorio out/trimmed si no existe.
 mkdir -p log/cutadapt #Creamos el directorio log/cutadapt si no existe.
 for file in out/merged/*.fastq.gz #Hacemos un bucle for para coger las muestras del directorio out/merged.
 do
-    sid=$(basename "$file" .merged.fastq.gz) #Obtenemos el id de la muestra.
-    echo "Running cutadapt for sample $sid"
-    cutadapt -m 18 -a TGGAATTCTCGGGTGCCAAGG --discard-untrimmed \
-         -o out/trimmed/"$sid.trimmed.fastq.gz" "$file" > log/cutadapt/"$sid.log" 
-         #Ejecutamos cutadapt con los merged.fastq.gz, guardamos el resultado en out/trimmed y redireccionamos el log en el directorio log/cutadapt.
+    sid_cutadapt=$(basename "$file" .merged.fastq.gz) #Obtenemos el id de la muestra.
+    if [ -n "out/trimmed/$sid_cutadapt.trimmed.fastq.gz" ] #Si el archivo ya existe, mostramos un mensaje de advertencia.
+    then
+        echo -e "\nThe file out/trimmed/$sid_cutadapt.trimmed.fastq.gz already exists. Skipping cutadapt.\n"
+        exit 1
+    else
+        echo "Running cutadapt for sample $sid_cutaadapt"
+        cutadapt -m 18 -a TGGAATTCTCGGGTGCCAAGG --discard-untrimmed \
+            -o out/trimmed/"$sid_cutadapt.trimmed.fastq.gz" "$file" > log/cutadapt/"$sid_cutadapt.log" 
+            #Ejecutamos cutadapt con los merged.fastq.gz, guardamos el resultado en out/trimmed y redireccionamos el log en el directorio log/cutadapt.
+    fi
 done
 
 
@@ -38,13 +42,20 @@ done
 for fname in out/trimmed/*.fastq.gz #Hacemos un bucle for para coger las muestras del directorio out/trimmed.
 do
     # you will need to obtain the sample ID from the filename
-    sid=$(basename "$fname" .trimmed.fastq.gz) #Obtenemos el id de la muestra.
-    echo "Running STAR Alignment for sample $sid"
-    mkdir -p out/star/$sid
-    STAR --runThreadN 4 --genomeDir res/contaminants_idx/ \
-        --outReadsUnmapped Fastx --readFilesIn $fname \
-        --readFilesCommand gunzip -c --outFileNamePrefix out/star/$sid/
-        #Ejecutamos STAR con los archivos trimmed.fastq.gz y guardamos el resultado en out/star/$sid.
+    sid_star=$(basename "$fname" .trimmed.fastq.gz) #Obtenemos el id de la muestra.
+    sid_star_count=$(ls out/star | wc -l) #Contamos el número de archivos en el directorio out/star.
+    if [ $sid_star_count -eq 6 ] #Si el número de archivos es 6, mostramos un mensaje de advertencia.
+    then
+        echo -e "\nThe STAR Alignment already exists. Skipping index generation.\n"
+        exit 1
+    else
+        echo "Running STAR Alignment for sample $sid_star"
+        mkdir -p out/star/$sid_star #Creamos el directorio out/star/$sid_star si no existe.
+        STAR --runThreadN 4 --genomeDir res/contaminants_idx/ \
+            --outReadsUnmapped Fastx --readFilesIn $fname \
+            --readFilesCommand gunzip -c --outFileNamePrefix out/star/$sid_star/
+            #Ejecutamos STAR con los archivos trimmed.fastq.gz y guardamos el resultado en out/star/$sid_star.
+    fi
 done 
 
 # TODO: create a log file containing information from cutadapt and star logs
@@ -63,8 +74,8 @@ echo "===================================" >> $log_file #Añadimos una línea de
 echo -e "\n=== Cutadapt Summary Log ===" >> $log_file
 for log in log/cutadapt/*.log #Hacemos un bucle para coger los logs de cutadapt de cada muestra.
 do
-    sid=$(basename "$log" .log) #Obtenemos el id de la muestra.
-    echo -e "\nSample: $sid" >> $log_file #Mostramos que muestra estamos tratando.
+    sid_log=$(basename "$log" .log) #Obtenemos el id de la muestra.
+    echo -e "\nSample: $sid_log" >> $log_file #Mostramos que muestra estamos tratando.
     grep "Reads with adapters" $log >> $log_file #Añadimos al archivo log la información de reads with adapters.
     grep "Total basepairs processed" $log >> $log_file #Añadimos al archivo log la información de total basepairs processed.
 done
@@ -73,8 +84,8 @@ done
 echo -e "\n=== STAR Alignment Summary Log ===" >> $log_file
 for log_final in out/star/*/Log.final.out #Hacemos un bucle para coger los logs de STAR de cada muestra.
 do
-    sid=$(basename $(dirname $log_final)) #Obtenemos el id de la muestra.
-    echo -e "\nSample: $sid" >> $log_file #Mostramos que muestra estamos tratando.
+    sid_log_final=$(basename $(dirname $log_final)) #Obtenemos el id de la muestra.
+    echo -e "\nSample: $sid_log_final" >> $log_file #Mostramos que muestra estamos tratando.
     grep "Uniquely mapped reads %" $log_final >> $log_file #Añadimos al archivo log la información de uniquely mapped reads.
     grep "% of reads mapped to multiple loci" $log_final >> $log_file #Añadimos al archivo log la información de reads mapped to multiple loci.
     grep "% of reads mapped to too many loci" $log_final >> $log_file #Añadimos al archivo log la información de reads mapped to too many loci.
