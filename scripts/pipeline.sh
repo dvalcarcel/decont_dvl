@@ -52,3 +52,30 @@ done
 # - cutadapt: Reads with adapters and total basepairs
 # - star: Percentages of uniquely mapped reads, reads mapped to multiple loci, and to too many loci
 # tip: use grep to filter the lines you're interested in
+
+
+#Creamos el archivo log que contendrá la información de los logs de cutadapt y star.
+log_file="log/pipeline.log"
+echo "Pipeline Log - $(date)" > $log_file #Escribimos la fecha en el archivo log.
+echo "===================================" >> $log_file #Añadimos una línea de separación.
+
+#Añadimos la información de cutadapt al archivo log.
+echo -e "\n=== Cutadapt Summary Log ===" >> $log_file
+for log in log/cutadapt/*.log #Hacemos un bucle para coger los logs de cutadapt de cada muestra.
+do
+    sid=$(basename "$log" .log) #Obtenemos el id de la muestra.
+    echo -e "\nSample: $sid" >> $log_file #Mostramos que muestra estamos tratando.
+    grep "Reads with adapters" $log >> $log_file #Añadimos al archivo log la información de reads with adapters.
+    grep "Total basepairs processed" $log >> $log_file #Añadimos al archivo log la información de total basepairs processed.
+done
+
+#Añadimos la información de STAR al archivo log.
+echo -e "\n=== STAR Alignment Summary Log ===" >> $log_file
+for log_final in out/star/*/Log.final.out #Hacemos un bucle para coger los logs de STAR de cada muestra.
+do
+    sid=$(basename $(dirname $log_final)) #Obtenemos el id de la muestra.
+    echo -e "\nSample: $sid" >> $log_file #Mostramos que muestra estamos tratando.
+    grep "Uniquely mapped reads %" $log_final >> $log_file #Añadimos al archivo log la información de uniquely mapped reads.
+    grep "% of reads mapped to multiple loci" $log_final >> $log_file #Añadimos al archivo log la información de reads mapped to multiple loci.
+    grep "% of reads mapped to too many loci" $log_final >> $log_file #Añadimos al archivo log la información de reads mapped to too many loci.
+done
