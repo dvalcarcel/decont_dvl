@@ -1,1 +1,11 @@
-
+name: decont
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+  - nodefaults
+dependencies:
+  - seqkit
+  - star
+  - cutadapt
+prefix: /home/vant/miniforge3/envs/decont
