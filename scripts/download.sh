@@ -18,19 +18,6 @@
 #   If $4 == "another" only the **first two sequence** should be output
 
 
-# En primer lugar, descargamos los archivos fastq.gz del archivo url, siendo $1 la url y $2 el directorio donde se guardará:
-#mkdir -p $2 #Nos aseguramos de que exista el directorio donde se guardarán los archivos descargados:
-#output_url="$2"/*.fastq.gz #Definimos el nombre del archivo de salida.
-#if [ -e "$output_url" ]
-#then
-    #echo "The file already exists"
-    #exit 1
-#else
-    #echo "Downloading urls from $1 into directory $2"
-    #wget -P $2 -i $1 #Descargamos las urls ($1) sin utilizar el bucle for y lo guardamos en la ruta que me indique el segundo argumento.
-    #echo "Done"
-#fi 
-
 if [ "$#" -eq 2 ] #Si el número de argumentos es 2, ejecuta el siguiente código:
 then
     mkdir -p "$2" #Nos aseguramos de que exista el directorio donde se guardarán los archivos descargados:
@@ -42,14 +29,23 @@ then
         # Verificamos si el archivo ya existe en el directorio de destino
         if [ -e "$filename" ] 
         then
-            echo -e "\nThe file $filename exists. Skipping download.\n"
+            echo -e "\nThe file $filename exists. Skipping download.\n" #Si el archivo ya existe, mostramos un mensaje de advertencia.
         else
             # Descargar el archivo si no existe
             echo -e "\nDownloading url from "$url" into directory "$2"\n"
-            wget -P "$2" "$url"
+            wget -P "$2" "$url" #Descargamos el archivo en la ruta que me indique el segundo argumento.
             echo -e "\nDownload successful: $filename\n"
+            expected_fasta_md5=$(wget -qO- "$url.md5" | awk '{print $1}') #Obtenemos el md5 esperado del archivo fasta sin descargarlo.
+            #Con wget -qO- obtenemos el hash .md5 sin descargarlo y con awk '{print $1}' obtenemos el md5 esperado.
+            calculated_fasta_md5=$(md5sum "$filename" | awk '{print $1}') #Calculamos el md5 del archivo fasta descargado.
+            if [ "$expected_fasta_md5" == "$calculated_fasta_md5" ] #Comparamos el md5 esperado con el md5 calculado.
+            then
+                echo "The md5sum of $filename is correct" #Si el md5 es correcto, mostramos un mensaje.
+            else
+                echo "The md5sum of $filename is incorrect"
+            fi
         fi
-    done < "$1"
+    done < "$1" #Esto me permite pasarle al while como entrada el archivo data/urls para que lo pueda leer línea por línea.
 elif [ "$#" -eq 4 ] #Si el número de argumentos es 4, ejecuta el siguiente código:
 then
     mkdir -p "$2" #Nos aseguramos de que exista el directorio donde se guardarán los archivos descargados.
@@ -60,19 +56,27 @@ then
     else
         echo -e "\nDownloading url from "$1" into directory "$2"\n"
         wget -P "$2" "$1" #Descargamos el archivo contaminants.fasta.gz en la ruta que me indique el segundo argumento.
+        expected_contaminants_md5=$(wget -qO- "$1.md5" | awk '{print $1}') #Obtenemos el md5 esperado del archivo contaminants.fasta.gz sin descargarlo.
+        calculated_contaminants_md5=$(md5sum "$2/$file_contaminants" | awk '{print $1}') #Calculamos el md5 del archivo contaminants.fasta.gz descargado.
+        if [ "$expected_contaminants_md5" == "$calculated_contaminants_md5" ] #Comparamos el md5 esperado con el md5 calculado.
+        then
+            echo "The md5sum of $file_contaminants is correct" #Si el md5 es correcto, mostramos un mensaje.
+        else
+            echo "The md5sum of $file_contaminants is incorrect"
+        fi
     fi
-    if [[ "$3" == "yes" && "$file_contaminants" == *.gz ]] #Si el tercer argumento es "yes" y el archivo está comprimido, lo descomprimimos:
+    if [[ "$3" == "yes" && "$file_contaminants" == *.gz ]] #Además, si el tercer argumento es "yes" y el archivo está comprimido, lo descomprimimos:
     then
         echo -e "\nUncompressing the file\n"
-        gunzip "$2/$file_contaminants" #Descomprimimos el archivo en la ruta que me indique el segundo argumento.
+        gunzip -k "$2/$file_contaminants" #Descomprimimos el archivo en la ruta que me indique el segundo argumento y mantenemos el archivo comprimido original.
         echo "Done"
     else
-        echo -e "\nThe file is not going to be uncompressed\n"
+        echo -e "\nThe file is not going to be uncompressed\n" #Si no tenemos el argumento yes como tercer argumento y el archivo no está comprimido, mostramos un mensaje.
     fi
     # Si el cuarto argumento es una palabra, filtramos las secuencias que contengan ese palabra en su header para eliminarlas:
     if [ -n "$4" ]
     then
-        echo -e "\nFiltering sequences with the word "$4" in their header\n"
+        echo -e "\nFiltering sequences with the word "$4" in their header"
         file_fasta=$(basename "$1" .gz) #Defino el nombre del archivo fasta, para asegurarme de que está descomprimido.
         seqkit grep -v -r -i -n -p "$4" "$2/$file_fasta" -o "$2/${file_fasta%.fasta}_filtered.fasta" #Filtro el fasta y guardo el archivo filtrado con otro nombre.
         #Utilizo seqkit para filtrar las secuencias que contengan la palabra en su header, y guardo el archivo filtrado en la misma ruta que el archivo original.
@@ -84,45 +88,12 @@ then
         # -p: Patrón a buscar.
         echo -e "\nDone\n"
     else
-        echo -e "\nThe sequences are not going to be filtered\n"
+        echo -e "\nThe sequences are not going to be filtered\n" #Si no tenemos el cuarto argumento, mostramos un mensaje.
     fi
 else
-    echo -e "\nError: You must provide either 2 or 4 arguments"
-    echo -e "Usage: bash download.sh <url_file> <output_dir> [Uncompress: yes/no] [word to filter the fasta file]\n"
+    echo -e "\nError: You must provide either 2 or 4 arguments" #Si el número de argumentos no es 2 ni 4, mostramos un mensaje de error.
+    echo -e "Usage: bash download.sh <url_file> <output_dir> [Uncompress: yes/no] [word to filter the fasta file]\n" #Mostramos cómo se debe usar el script.
     exit 1
 fi
  
 
-
-# Si el tercer argumento es "yes" y el archivo está comprimido, lo descomprimimos:
-
-#Defino primero el nombre del archivo para asegurarme de que es un archivo comprimido:
-#file=$(basename "$1")
-
-#if [[ "$3" == "yes" && "$file" == *.gz ]]
-#then
-    #echo "Uncompressing the file"
-    #gunzip $2/$file #Descomprimimos el archivo en la ruta que me indique el segundo argumento.
-    #echo "Done"
-#else
-    #echo "The file is not going to be uncompressed"
-    
-#fi
-
-# Si el cuarto argumento es una palabra, filtramos las secuencias que contengan ese palabra en su header para eliminarlas:
-#if [ -n "$4" ]
-#then
-    #echo "Filtering sequences with the word $4 in their header"
-    #file_fasta=$(basename "$1" .gz) #Defino el nombre del archivo fasta, para asegurarme de que está descomprimido.
-    #seqkit grep -v -r -i -n -p "$4" "$2/$file_fasta" -o "$2/${file_fasta%.fasta}_filtered.fasta" #Filtro el fasta y guardo el archivo filtrado con otro nombre.
-    #Utilizo seqkit para filtrar las secuencias que contengan la palabra en su header, y guardo el archivo filtrado en la misma ruta que el archivo original.
-    #Para ello uso grep con las siguientes opciones:
-    # -v: Invierte la selección, es decir, selecciona las secuencias que no contengan la palabra.
-    # -r: Usa expresiones regulares.
-    # -i: Ignora mayúsculas y minúsculas.
-    # -n: Muestra el nombre de la secuencia.
-    # -p: Patrón a buscar.
-    #echo "Done"
-#else
-    #echo "The sequences are not going to be filtered"
-#fi

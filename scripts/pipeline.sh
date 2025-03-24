@@ -13,9 +13,9 @@ bash scripts/download.sh https://bioinformatics.cnio.es/data/courses/decont/cont
 bash scripts/index.sh res/contaminants_filtered.fasta res/contaminants_idx #Indexamos el archivo contaminants_filtered.fasta en el directorio res/contaminants_idx.
 
 # Merge the samples into a single file
-for sid in $(ls data/*.fastq.gz | cut -d "-" -f1 | cut -d "/" -f2 | uniq)
+for sid in $(ls data/*.fastq.gz | cut -d "-" -f1 | cut -d "/" -f2 | uniq) #Hacemos un bucle for para coger las muestras del directorio data.
 do
-    bash scripts/merge_fastqs.sh data out/merged $sid
+    bash scripts/merge_fastqs.sh data out/merged $sid #Para cada muestra, ejecutamos el script merge_fastqs.sh con los archivos fastq.gz de la muestra y los guardamos en out/merged.
 done
 
 # TODO: run cutadapt for all merged files
@@ -25,12 +25,11 @@ mkdir -p log/cutadapt #Creamos el directorio log/cutadapt si no existe.
 for file in out/merged/*.fastq.gz #Hacemos un bucle for para coger las muestras del directorio out/merged.
 do
     sid_cutadapt=$(basename "$file" .merged.fastq.gz) #Obtenemos el id de la muestra.
-    if [ -n "out/trimmed/$sid_cutadapt.trimmed.fastq.gz" ] #Si el archivo ya existe, mostramos un mensaje de advertencia.
+    if [ -e "out/trimmed/$sid_cutadapt.trimmed.fastq.gz" ] #Si el archivo ya existe, mostramos un mensaje de advertencia.
     then
         echo -e "\nThe file out/trimmed/$sid_cutadapt.trimmed.fastq.gz already exists. Skipping cutadapt.\n"
-        exit 1
     else
-        echo "Running cutadapt for sample $sid_cutaadapt"
+        echo "Running cutadapt for sample $sid_cutadapt"
         cutadapt -m 18 -a TGGAATTCTCGGGTGCCAAGG --discard-untrimmed \
             -o out/trimmed/"$sid_cutadapt.trimmed.fastq.gz" "$file" > log/cutadapt/"$sid_cutadapt.log" 
             #Ejecutamos cutadapt con los merged.fastq.gz, guardamos el resultado en out/trimmed y redireccionamos el log en el directorio log/cutadapt.
@@ -43,11 +42,9 @@ for fname in out/trimmed/*.fastq.gz #Hacemos un bucle for para coger las muestra
 do
     # you will need to obtain the sample ID from the filename
     sid_star=$(basename "$fname" .trimmed.fastq.gz) #Obtenemos el id de la muestra.
-    sid_star_count=$(ls out/star | wc -l) #Contamos el número de archivos en el directorio out/star.
-    if [ $sid_star_count -eq 6 ] #Si el número de archivos es 6, mostramos un mensaje de advertencia.
+    if [ -e "out/star/$sid_star/Aligned.out.sam" ] #Si el sam de alineamiento de la muestra existe, mostramos un mensaje de advertencia.
     then
-        echo -e "\nThe STAR Alignment already exists. Skipping index generation.\n"
-        exit 1
+        echo -e "\nThe STAR Alignment for sample $sid_star already exists. Skipping alignment.\n"
     else
         echo "Running STAR Alignment for sample $sid_star"
         mkdir -p out/star/$sid_star #Creamos el directorio out/star/$sid_star si no existe.
@@ -82,7 +79,7 @@ done
 
 #Añadimos la información de STAR al archivo log.
 echo -e "\n=== STAR Alignment Summary Log ===" >> $log_file
-for log_final in out/star/*/Log.final.out #Hacemos un bucle para coger los logs de STAR de cada muestra.
+for log_final in out/star/*/Log.final.out #Hacemos un bucle for para coger los logs de STAR de cada muestra.
 do
     sid_log_final=$(basename $(dirname $log_final)) #Obtenemos el id de la muestra.
     echo -e "\nSample: $sid_log_final" >> $log_file #Mostramos que muestra estamos tratando.
