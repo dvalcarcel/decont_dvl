@@ -21,6 +21,14 @@
 if [ "$#" -eq 2 ] #Si el número de argumentos es 2, ejecuta el siguiente código:
 then
     mkdir -p "$2" #Nos aseguramos de que exista el directorio donde se guardarán los archivos descargados:
+    if [ -e "$2/urls" ] #Si el archivo urls ya existe en el directorio de destino, mostramos un mensaje de advertencia.
+    then
+        echo -e "\nThe file $2/urls exists. Skipping download.\n" #Si el archivo ya existe en el directorio de destino, mostramos un mensaje de advertencia.
+    else
+        echo -e "\nDownloading url file into directory "$2"\n"
+        wget -P "$2" "https://raw.githubusercontent.com/dvalcarcel/decont_dvl/refs/heads/master/data/urls" #Descargamos el archivo urls del github en la ruta que me indique el segundo argumento.
+        echo -e "\nDownload successful: $2/urls\n"
+    fi
     # Leer cada URL del archivo data/urls
     while read -r url #Leemos cada url del archivo data/urls
     do
